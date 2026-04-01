@@ -534,7 +534,7 @@ function closeSettings() {
 function saveSettings() {
   const key = document.getElementById('apiKeyInput').value.trim();
   if (!key) { alert('Please paste your API key first.'); return; }
-  if (!key.startsWith('sk-')) { alert('That does not look like a valid Anthropic key. It should start with sk-ant-'); return; }
+  if (key.length < 10) { alert('That does not look like a valid API key.'); return; }
   localStorage.setItem('kas_api_key', key);
   document.getElementById('apiKeyStatus').textContent = '✓ Key saved (' + key.slice(0,12) + '...)';
   document.getElementById('apiKeyStatus').style.color = '#8fb89a';
@@ -566,25 +566,19 @@ async function testApiKey() {
   }
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'Hi' }]
-      })
-    });
+    const resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + key,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }] })
+      }
+    );
 
     const raw = await resp.text();
     if (resp.ok) {
       resultEl.style.color = '#8fb89a';
-      resultEl.textContent = '✓ Key works! Status: ' + resp.status;
+      resultEl.textContent = '✓ Key works! Gemini connected.';
     } else {
       resultEl.style.color = '#e07060';
       resultEl.textContent = '✗ Error ' + resp.status + ': ' + raw.slice(0, 200);
@@ -672,24 +666,25 @@ async function analyzeReceipt(base64, mimeType) {
   document.getElementById('receiptError').classList.remove('show');
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': getApiKey(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-            { type: 'text', text: AI_PROMPT }
-          ]
-        }]
-      })
-    });
+    const resp = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + getApiKey(),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mimeType, data: base64 } },
+              { text: AI_PROMPT }
+            ]
+          }]
+        })
+      }
+    );
 
     const data = await resp.json();
-    const text = data.content?.find(b => b.type === 'text')?.text || '';
+    if (!resp.ok) throw new Error(JSON.stringify(data));
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const clean = text.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
 
@@ -878,8 +873,8 @@ renderLog();
 
     <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Anthropic API Key</div>
     <div id="apiKeyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">No key set</div>
-    <input id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
-    <div style="font-size:11px;color:#7a766e;margin-top:6px;">Get a free key at <b style="color:#d4a84b;">console.anthropic.com</b> → API Keys</div>
+    <input id="apiKeyInput" type="password" placeholder="AIza..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:6px;">Get a free key at <b style="color:#d4a84b;">aistudio.google.com</b> → Get API Key (starts with AIza)</div>
 
     <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;">Save Key</button>
     <button onclick="testApiKey()" style="width:100%;padding:11px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Test Key</button>

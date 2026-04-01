@@ -575,7 +575,7 @@ async function testApiKey() {
         'X-Title': 'Kas Receipt Scanner'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.2-11b-vision-instruct:free',
+        model: 'openrouter/auto',
         max_tokens: 10,
         messages: [{ role: 'user', content: 'Hi' }]
       })
@@ -681,7 +681,7 @@ async function analyzeReceipt(base64, mimeType) {
         'X-Title': 'Kas Receipt Scanner'
       },
       body: JSON.stringify({
-        model: 'meta-llama/llama-3.2-11b-vision-instruct:free',
+        model: 'openrouter/auto',
         max_tokens: 1000,
         messages: [{
           role: 'user',

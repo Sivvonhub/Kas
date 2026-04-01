@@ -551,6 +551,50 @@ function clearSettings() {
   document.getElementById('apiKeyStatus').style.color = '#e07060';
 }
 
+async function testApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim() || getApiKey();
+  const resultEl = document.getElementById('testResult');
+  resultEl.style.display = 'block';
+  resultEl.style.background = '#232220';
+  resultEl.style.color = '#7a766e';
+  resultEl.textContent = 'Testing...';
+
+  if (!key) {
+    resultEl.style.color = '#e07060';
+    resultEl.textContent = 'No key entered.';
+    return;
+  }
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Hi' }]
+      })
+    });
+
+    const raw = await resp.text();
+    if (resp.ok) {
+      resultEl.style.color = '#8fb89a';
+      resultEl.textContent = '✓ Key works! Status: ' + resp.status;
+    } else {
+      resultEl.style.color = '#e07060';
+      resultEl.textContent = '✗ Error ' + resp.status + ': ' + raw.slice(0, 200);
+    }
+  } catch (err) {
+    resultEl.style.color = '#e07060';
+    resultEl.textContent = '✗ Network error: ' + err.message;
+  }
+}
+
 function checkApiKey() {
   if (!getApiKey()) {
     const b = document.createElement('div');
@@ -838,6 +882,8 @@ renderLog();
     <div style="font-size:11px;color:#7a766e;margin-top:6px;">Get a free key at <b style="color:#d4a84b;">console.anthropic.com</b> → API Keys</div>
 
     <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;">Save Key</button>
+    <button onclick="testApiKey()" style="width:100%;padding:11px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Test Key</button>
+    <div id="testResult" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;word-break:break-all;"></div>
     <button onclick="clearSettings()" style="width:100%;padding:11px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Clear Saved Key</button>
   </div>
 </div>

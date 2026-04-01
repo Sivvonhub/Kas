@@ -364,6 +364,7 @@
   <span class="header-title">Kas</span>
   <span class="header-sub">Cash Tracker · Bali</span>
   <span class="entry-count" id="entryCount">0 entries</span>
+  <button onclick="openSettings()" style="background:none;border:none;color:#7a766e;font-size:20px;cursor:pointer;padding:0 0 0 10px;line-height:1;" title="Settings">⚙️</button>
 </div>
 
 <div class="tabs">
@@ -514,19 +515,48 @@
 const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Shopping","Health","Subscriptions","Family Spending","Own Spending","Wife Allowance","Uti Allowance","Debt","Business","Misc"];
 let entries = [];
 
-// ── API KEY ──
+// ── API KEY & SETTINGS ──
 function getApiKey() { return localStorage.getItem('kas_api_key') || ''; }
-function promptForApiKey() {
-  const key = prompt('Enter your Anthropic API key (sk-ant-...):\n\nGet one free at console.anthropic.com', '');
-  if (key && key.trim()) { localStorage.setItem('kas_api_key', key.trim()); return key.trim(); }
-  return getApiKey();
+
+function openSettings() {
+  const current = getApiKey();
+  const modal = document.getElementById('settingsModal');
+  document.getElementById('apiKeyInput').value = current;
+  document.getElementById('apiKeyStatus').textContent = current ? '✓ Key saved (' + current.slice(0,12) + '...)' : 'No key set';
+  document.getElementById('apiKeyStatus').style.color = current ? '#8fb89a' : '#e07060';
+  modal.style.display = 'flex';
 }
+
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+function saveSettings() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { alert('Please paste your API key first.'); return; }
+  if (!key.startsWith('sk-')) { alert('That does not look like a valid Anthropic key. It should start with sk-ant-'); return; }
+  localStorage.setItem('kas_api_key', key);
+  document.getElementById('apiKeyStatus').textContent = '✓ Key saved (' + key.slice(0,12) + '...)';
+  document.getElementById('apiKeyStatus').style.color = '#8fb89a';
+  // Remove any warning banner
+  const banner = document.getElementById('noBanner');
+  if (banner) banner.remove();
+  closeSettings();
+}
+
+function clearSettings() {
+  localStorage.removeItem('kas_api_key');
+  document.getElementById('apiKeyInput').value = '';
+  document.getElementById('apiKeyStatus').textContent = 'Key cleared';
+  document.getElementById('apiKeyStatus').style.color = '#e07060';
+}
+
 function checkApiKey() {
   if (!getApiKey()) {
     const b = document.createElement('div');
+    b.id = 'noBanner';
     b.style.cssText = 'background:#c0614a22;border:1px solid #c0614a55;border-radius:8px;padding:11px 14px;margin:0 0 12px;font-size:12px;color:#e07060;cursor:pointer;';
-    b.innerHTML = '⚠️ <b>API key needed for receipt scanning.</b><br>Tap here to enter your Anthropic key.';
-    b.onclick = () => { if(promptForApiKey()) location.reload(); };
+    b.innerHTML = '⚠️ <b>API key needed for receipt scanning.</b><br>Tap ⚙️ in the top right to add your key.';
     const zone = document.getElementById('uploadZone');
     zone.parentNode.insertBefore(b, zone);
   }
@@ -793,5 +823,24 @@ function exportCSV() {
 // Init
 renderLog();
 </script>
+
+<!-- Settings Modal -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#1a1916;border:1px solid #2e2c29;border-radius:16px;padding:24px;width:100%;max-width:380px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-family:'Fraunces',serif;font-size:20px;font-weight:900;color:#d4a84b;">Settings</span>
+      <button onclick="closeSettings()" style="background:none;border:none;color:#7a766e;font-size:24px;cursor:pointer;line-height:1;">×</button>
+    </div>
+
+    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Anthropic API Key</div>
+    <div id="apiKeyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">No key set</div>
+    <input id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:6px;">Get a free key at <b style="color:#d4a84b;">console.anthropic.com</b> → API Keys</div>
+
+    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;">Save Key</button>
+    <button onclick="clearSettings()" style="width:100%;padding:11px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Clear Saved Key</button>
+  </div>
+</div>
+
 </body>
 </html>

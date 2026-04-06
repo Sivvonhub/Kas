@@ -364,8 +364,10 @@
   <span class="header-title">Kas</span>
   <span class="header-sub">Cash Tracker · Bali</span>
   <span class="entry-count" id="entryCount">0 entries</span>
-  <button onclick="openSettings()" style="background:none;border:none;color:#7a766e;font-size:20px;cursor:pointer;padding:0 0 0 10px;line-height:1;" title="Settings">⚙️</button>
+  <span id="queueBadge" style="display:none;background:#c0614a;color:#fff;font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;letter-spacing:.04em;cursor:pointer;" onclick="syncQueue()" title="Tap to retry sync">⏳ 0 pending</span>
+  <button onclick="openSettings()" style="background:none;border:none;color:#7a766e;font-size:20px;cursor:pointer;padding:0 0 0 8px;line-height:1;" title="Settings">⚙️</button>
 </div>
+<div id="syncIndicator" style="display:none;text-align:center;font-size:11px;padding:4px 0;background:#1a1916;border-bottom:1px solid #2e2c29;"></div>
 
 <div class="tabs">
   <button class="tab active" onclick="switchTab('receipt')">📷 Receipt</button>
@@ -460,7 +462,7 @@
   </div>
 
   <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Category</div>
-  <select id="m_category">
+  <select id="m_category" onchange="toggleLollygaggsFields(this)">
     <option value="Eating Out">Eating Out</option>
     <option value="Groceries">Groceries</option>
     <option value="Grab / GoFood">Grab / GoFood</option>
@@ -476,6 +478,19 @@
     <option value="Business">Business (Lollygaggs)</option>
     <option value="Misc">Misc / Other</option>
   </select>
+
+  <div id="lollygaggsFields" style="display:none;">
+    <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Lollygaggs — Service Type</div>
+    <select id="m_lollyType">
+      <option value="nail">Nail Service</option>
+      <option value="eyelash">Eyelash Service</option>
+      <option value="expense">Business Expense</option>
+    </select>
+    <div class="card-label" style="margin-top:10px;margin-bottom:4px;">Client Phone (if service)</div>
+    <input type="tel" id="m_clientPhone" placeholder="+62 812 xxxx xxxx">
+    <div class="card-label" style="margin-top:10px;margin-bottom:4px;">Client Name</div>
+    <input type="text" id="m_clientName" placeholder="Optional">
+  </div>
 
   <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Account</div>
   <select id="m_account">
@@ -515,15 +530,110 @@
 const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Shopping","Health","Subscriptions","Family Spending","Own Spending","Wife Allowance","Uti Allowance","Debt","Business","Misc"];
 let entries = [];
 
-// ── API KEY & SETTINGS ──
+// ── SETTINGS ──
 function getApiKey() { return localStorage.getItem('kas_api_key') || ''; }
+function getWebAppUrl() { return localStorage.getItem('kas_webapp_url') || ''; }
+function getKasSecret() { return localStorage.getItem('kas_secret') || 'kas-simon-2026'; }
+
+// ── OFFLINE QUEUE ──
+function getQueue() {
+  try { return JSON.parse(localStorage.getItem('kas_sync_queue') || '[]'); } catch(e) { return []; }
+}
+function saveQueue(q) { localStorage.setItem('kas_sync_queue', JSON.stringify(q)); }
+
+async function syncQueue() {
+  const url = getWebAppUrl();
+  if (!url) return;
+  const queue = getQueue();
+  if (!queue.length) return;
+  const remaining = [];
+  for (const item of queue) {
+    try {
+      const resp = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({...item, secret: getKasSecret()})
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.status !== 'ok') remaining.push(item);
+    } catch(e) {
+      remaining.push(item); // offline — keep in queue
+    }
+  }
+  saveQueue(remaining);
+  updateQueueBadge();
+}
+
+function updateQueueBadge() {
+  const q = getQueue();
+  const badge = document.getElementById('queueBadge');
+  if (!badge) return;
+  if (q.length > 0) {
+    badge.textContent = q.length + ' pending';
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function postToSheets(entry) {
+  const url = getWebAppUrl();
+  const payload = {
+    secret: getKasSecret(),
+    date: entry.date,
+    description: entry.merchant,
+    category: entry.category,
+    amount: entry.rawAmount,
+    currency: entry.currency,
+    account: entry.account,
+    notes: entry.notes,
+    year: new Date(entry.date).getFullYear(),
+    lollygaggsType: entry.lollygaggsType || 'expense',
+    clientPhone: entry.clientPhone || '',
+    clientName: entry.clientName || '',
+  };
+
+  if (!url) {
+    // No web app configured — add to queue silently
+    const q = getQueue(); q.push(payload); saveQueue(q);
+    updateQueueBadge();
+    return {queued: true};
+  }
+
+  try {
+    const resp = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Unknown error');
+    return {synced: true, sheet: data.sheet};
+  } catch(e) {
+    // Failed (offline or error) — add to queue
+    const q = getQueue(); q.push(payload); saveQueue(q);
+    updateQueueBadge();
+    return {queued: true, error: e.message};
+  }
+}
 
 function openSettings() {
-  const current = getApiKey();
+  const apiKey = getApiKey();
+  const webApp = getWebAppUrl();
+  const secret = getKasSecret();
   const modal = document.getElementById('settingsModal');
-  document.getElementById('apiKeyInput').value = current;
-  document.getElementById('apiKeyStatus').textContent = current ? '✓ Key saved (' + current.slice(0,12) + '...)' : 'No key set';
-  document.getElementById('apiKeyStatus').style.color = current ? '#8fb89a' : '#e07060';
+
+  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('apiKeyStatus').textContent = apiKey ? '✓ Key saved (' + apiKey.slice(0,12) + '...)' : 'No key set';
+  document.getElementById('apiKeyStatus').style.color = apiKey ? '#8fb89a' : '#e07060';
+
+  document.getElementById('webAppInput').value = webApp;
+  document.getElementById('webAppStatus').textContent = webApp ? '✓ Configured' : 'Not configured — entries will queue until set';
+  document.getElementById('webAppStatus').style.color = webApp ? '#8fb89a' : '#e07060';
+
+  document.getElementById('secretInput').value = secret;
+
   modal.style.display = 'flex';
 }
 
@@ -533,15 +643,29 @@ function closeSettings() {
 
 function saveSettings() {
   const key = document.getElementById('apiKeyInput').value.trim();
-  if (!key) { alert('Please paste your API key first.'); return; }
-  if (key.length < 10) { alert('That does not look like a valid API key.'); return; }
-  localStorage.setItem('kas_api_key', key);
-  document.getElementById('apiKeyStatus').textContent = '✓ Key saved (' + key.slice(0,12) + '...)';
-  document.getElementById('apiKeyStatus').style.color = '#8fb89a';
-  // Remove any warning banner
+  if (key && key.length < 10) { alert('That does not look like a valid API key.'); return; }
+  if (key) {
+    localStorage.setItem('kas_api_key', key);
+    document.getElementById('apiKeyStatus').textContent = '✓ Key saved (' + key.slice(0,12) + '...)';
+    document.getElementById('apiKeyStatus').style.color = '#8fb89a';
+  }
+  const webApp = document.getElementById('webAppInput').value.trim();
+  if (webApp) {
+    localStorage.setItem('kas_webapp_url', webApp);
+    document.getElementById('webAppStatus').textContent = '✓ Configured';
+    document.getElementById('webAppStatus').style.color = '#8fb89a';
+  }
+  const secret = document.getElementById('secretInput').value.trim();
+  if (secret) localStorage.setItem('kas_secret', secret);
   const banner = document.getElementById('noBanner');
   if (banner) banner.remove();
   closeSettings();
+  // Flush any queued entries now that web app is configured
+  if (webApp) {
+    syncQueue().then(() => updateQueueBadge());
+    const q = getQueue();
+    if (q.length > 0) alert('Settings saved! Syncing ' + q.length + ' queued entries now...');
+  }
 }
 
 function clearSettings() {
@@ -611,6 +735,12 @@ const today = new Date().toISOString().split('T')[0];
 document.getElementById('r_date').value = today;
 document.getElementById('m_date').value = today;
 checkApiKey();
+
+function toggleLollygaggsFields(selectEl) {
+  const fields = document.getElementById('lollygaggsFields');
+  if (!fields) return;
+  fields.style.display = selectEl.value === 'Business' ? 'block' : 'none';
+}
 
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -727,7 +857,7 @@ function addReceiptEntry() {
     alert('Please enter a merchant and a valid amount.');
     return;
   }
-  entries.push({
+  const entry = {
     date: document.getElementById('r_date').value || today,
     merchant,
     detail: merchant,
@@ -739,6 +869,16 @@ function addReceiptEntry() {
     account: document.getElementById('r_account').value,
     notes: document.getElementById('r_notes').value,
     source: 'receipt'
+  };
+  entries.push(entry);
+  postToSheets(entry).then(result => {
+    const indicator = document.getElementById('syncIndicator');
+    if (indicator) {
+      indicator.textContent = result.synced ? '✓ Synced to sheet' : '⏳ Saved — will sync when online';
+      indicator.style.color = result.synced ? '#8fb89a' : '#d4a84b';
+      indicator.style.display = 'block';
+      setTimeout(() => indicator.style.display = 'none', 3000);
+    }
   });
   renderLog();
   resetReceipt();
@@ -751,7 +891,7 @@ function addManualEntry() {
     alert('Please enter a description and a valid amount.');
     return;
   }
-  entries.push({
+  const mEntry = {
     date: document.getElementById('m_date').value || today,
     merchant,
     detail: merchant,
@@ -762,7 +902,20 @@ function addManualEntry() {
     rawAmount: amount,
     account: document.getElementById('m_account').value,
     notes: document.getElementById('m_notes').value,
-    source: 'manual'
+    source: 'manual',
+    lollygaggsType: document.getElementById('m_lollyType')?.value || 'expense',
+    clientPhone: document.getElementById('m_clientPhone')?.value.trim() || '',
+    clientName: document.getElementById('m_clientName')?.value.trim() || '',
+  };
+  entries.push(mEntry);
+  postToSheets(mEntry).then(result => {
+    const indicator = document.getElementById('syncIndicator');
+    if (indicator) {
+      indicator.textContent = result.synced ? '✓ Synced to sheet' : '⏳ Saved — will sync when online';
+      indicator.style.color = result.synced ? '#8fb89a' : '#d4a84b';
+      indicator.style.display = 'block';
+      setTimeout(() => indicator.style.display = 'none', 3000);
+    }
   });
   // Reset manual form
   document.getElementById('m_merchant').value = '';
@@ -872,6 +1025,12 @@ function exportCSV() {
 
 // Init
 renderLog();
+updateQueueBadge();
+// Sync queued entries when app loads or connectivity resumes
+syncQueue();
+window.addEventListener('online', () => {
+  syncQueue().then(() => updateQueueBadge());
+});
 </script>
 
 <!-- Settings Modal -->
@@ -882,12 +1041,23 @@ renderLog();
       <button onclick="closeSettings()" style="background:none;border:none;color:#7a766e;font-size:24px;cursor:pointer;line-height:1;">×</button>
     </div>
 
+    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Google Sheets Web App URL</div>
+    <div id="webAppStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">Not configured</div>
+    <input id="webAppInput" type="text" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:12px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:12px;">Get this from Budget Tracker GAS → Deploy → Web App URL</div>
+
+    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Secret Token</div>
+    <input id="secretInput" type="text" placeholder="kas-simon-2026" style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:16px;">Must match KAS_SECRET in your Apps Script</div>
+
+    <div style="border-top:1px solid #2e2c29;padding-top:14px;margin-top:4px;">
     <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Anthropic API Key</div>
     <div id="apiKeyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">No key set</div>
     <input id="apiKeyInput" type="password" placeholder="sk-or-..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
     <div style="font-size:11px;color:#7a766e;margin-top:6px;">Get a free key at <b style="color:#d4a84b;">openrouter.ai</b> → Keys → Create Key (starts with sk-or-)</div>
 
-    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;">Save Key</button>
+    </div>
+    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;">Save All Settings</button>
     <button onclick="testApiKey()" style="width:100%;padding:11px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Test Key</button>
     <div id="testResult" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;word-break:break-all;"></div>
     <button onclick="clearSettings()" style="width:100%;padding:11px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Clear Saved Key</button>

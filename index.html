@@ -534,6 +534,7 @@ let entries = [];
 function getApiKey() { return localStorage.getItem('kas_api_key') || ''; }
 function getWebAppUrl() { return localStorage.getItem('kas_webapp_url') || ''; }
 function getKasSecret() { return localStorage.getItem('kas_secret') || 'kas-simon-2026'; }
+function getProxyUrl() { return localStorage.getItem('kas_proxy_url') || ''; }
 
 // ── OFFLINE QUEUE ──
 function getQueue() {
@@ -557,12 +558,21 @@ async function syncQueue(showResult) {
   for (const item of queue) {
     try {
       const payload = {...item, secret: getKasSecret()};
+      const gasUrl = url; // the GAS URL stored in settings
       const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-      const getUrl = url + '?d=' + encodeURIComponent(encoded);
-      // Use no-cors mode - GAS redirects cross-origin so we cannot read the response.
-      // Fire and forget: if fetch does not throw, the request reached Google.
-      await fetch(getUrl, {method: 'GET', mode: 'no-cors'});
-      // No error thrown = request sent successfully
+      const gasWithData = gasUrl + '?d=' + encodeURIComponent(encoded);
+      // Route via Cloudflare proxy to avoid CORS redirect issues
+      const proxyUrl = getProxyUrl();
+      const fetchUrl = proxyUrl
+        ? proxyUrl + '?target=' + encodeURIComponent(gasWithData)
+        : gasWithData;
+      const resp = await fetch(fetchUrl, {method: 'GET'});
+      let data;
+      try { data = await resp.json(); } catch(e) { data = {}; }
+      if (!resp.ok || data.status !== 'ok') {
+        remaining.push(item);
+        errors.push('HTTP ' + resp.status + ': ' + (data.message || data.error || 'Sync failed'));
+      }
     } catch(e) {
       remaining.push(item);
       errors.push(e.message || 'Network error - check connection');
@@ -641,11 +651,16 @@ async function postToSheets(entry) {
 
   try {
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    const getUrl = url + '?d=' + encodeURIComponent(encoded);
-    // no-cors: GAS Web Apps redirect cross-origin so response is unreadable.
-    // If fetch does not throw, the data reached Google successfully.
-    await fetch(getUrl, {method: 'GET', mode: 'no-cors'});
-    return {synced: true};
+    const gasWithData = url + '?d=' + encodeURIComponent(encoded);
+    const proxyUrl = getProxyUrl();
+    const fetchUrl = proxyUrl
+      ? proxyUrl + '?target=' + encodeURIComponent(gasWithData)
+      : gasWithData;
+    const resp = await fetch(fetchUrl, {method: 'GET'});
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Sync failed');
+    return {synced: true, sheet: data.sheet};
   } catch(e) {
     // Network error — queue for later
     const q = getQueue(); q.push(payload); saveQueue(q);
@@ -679,6 +694,15 @@ function openSettings() {
     qStatus.style.color = q.length > 0 ? '#d4a84b' : '#8fb89a';
   }
 
+  const proxyUrl = getProxyUrl();
+  const proxyInput = document.getElementById('proxyInput');
+  const proxyStatus = document.getElementById('proxyStatus');
+  if (proxyInput) proxyInput.value = proxyUrl;
+  if (proxyStatus) {
+    proxyStatus.textContent = proxyUrl ? '✓ Proxy configured' : 'Not set - sync may fail due to CORS';
+    proxyStatus.style.color = proxyUrl ? '#8fb89a' : '#e07060';
+  }
+
   modal.style.display = 'flex';
 }
 
@@ -704,10 +728,16 @@ function saveSettings() {
   if (secret) localStorage.setItem('kas_secret', secret);
   const banner = document.getElementById('noBanner');
   if (banner) banner.remove();
+  const proxy = document.getElementById('proxyInput');
+  if (proxy && proxy.value.trim()) {
+    localStorage.setItem('kas_proxy_url', proxy.value.trim());
+    const ps = document.getElementById('proxyStatus');
+    if (ps) { ps.textContent = '✓ Proxy configured'; ps.style.color = '#8fb89a'; }
+  }
+
   closeSettings();
-  // Flush any queued entries now that web app is configured
-  if (webApp) {
-    syncQueue().then(() => updateQueueBadge());
+  if (webApp || getProxyUrl()) {
+    syncQueue(false).then(() => updateQueueBadge());
     const q = getQueue();
     if (q.length > 0) alert('Settings saved! Syncing ' + q.length + ' queued entries now...');
   }
@@ -1107,6 +1137,12 @@ window.addEventListener('online', () => {
     <button onclick="closeSettings();setTimeout(forceSync,300);" style="width:100%;padding:12px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:8px;">Force Sync Queue Now</button>
     <button onclick="viewQueue();" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;margin-top:6px;font-family:var(--mono);">Debug: View Queued Entries</button>
     <div id="queueStatus" style="text-align:center;font-size:11px;color:#7a766e;margin-top:8px;"></div>
+    </div>
+    <div style="border-top:1px solid #2e2c29;padding-top:14px;margin-top:4px;">
+    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Cloudflare Proxy URL (recommended)</div>
+    <div id="proxyStatus" style="font-size:12px;margin-bottom:8px;color:#8fb89a;">Not set - sync may fail due to CORS</div>
+    <input id="proxyInput" type="text" placeholder="https://kask-proxy.dimes87.workers.dev" style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:12px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;">Routes requests via Cloudflare to fix Google CORS issues</div>
     <button onclick="testApiKey()" style="width:100%;padding:11px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Test Key</button>
     <div id="testResult" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;word-break:break-all;"></div>
     <button onclick="clearSettings()" style="width:100%;padding:11px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Clear Saved Key</button>

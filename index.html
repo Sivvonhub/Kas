@@ -557,31 +557,26 @@ async function syncQueue(showResult) {
   for (const item of queue) {
     try {
       const payload = {...item, secret: getKasSecret()};
-      // Use GET with base64-encoded data to avoid CORS preflight issues with GAS Web Apps
       const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
       const getUrl = url + '?d=' + encodeURIComponent(encoded);
-      const resp = await fetch(getUrl, {method: 'GET'});
-      let data;
-      try { data = await resp.json(); } catch(e) { data = {}; }
-      if (!resp.ok || data.status !== 'ok') {
-        remaining.push(item);
-        errors.push('HTTP ' + resp.status + ': ' + (data.message || data.error || 'Unknown error'));
-      }
+      // Use no-cors mode - GAS redirects cross-origin so we cannot read the response.
+      // Fire and forget: if fetch does not throw, the request reached Google.
+      await fetch(getUrl, {method: 'GET', mode: 'no-cors'});
+      // No error thrown = request sent successfully
     } catch(e) {
       remaining.push(item);
-      errors.push(e.message || 'Network error');
+      errors.push(e.message || 'Network error - check connection');
     }
   }
   saveQueue(remaining);
   updateQueueBadge();
   if (showResult) {
-    const synced = queue.length - remaining.length;
-    if (synced > 0 && remaining.length === 0) {
-      alert('✓ All ' + synced + ' entries synced successfully!');
-    } else if (synced > 0) {
-      alert('Synced ' + synced + ' entries.\n\nFailed (' + remaining.length + '):\n' + errors.join('\n'));
+    const failed = remaining.length;
+    const sent = queue.length - failed;
+    if (failed === 0) {
+      alert('✓ ' + sent + ' entr' + (sent===1?'y':'ies') + ' sent to Google Sheets!\n\nCheck your Transactions sheet to confirm they appeared.');
     } else {
-      alert('Sync failed for all entries.\n\nError details:\n' + errors.slice(0,3).join('\n') + '\n\nCheck that your Web App URL is correct and the script is deployed.');
+      alert('Sent: ' + sent + '\nFailed (no connection): ' + failed + '\n\n' + errors.slice(0,3).join('\n'));
     }
   }
 }
@@ -645,16 +640,14 @@ async function postToSheets(entry) {
   }
 
   try {
-    // Use GET with base64-encoded data to avoid CORS preflight issues with GAS Web Apps
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     const getUrl = url + '?d=' + encodeURIComponent(encoded);
-    const resp = await fetch(getUrl, {method: 'GET'});
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-    if (data.status !== 'ok') throw new Error(data.message || 'Unknown error');
-    return {synced: true, sheet: data.sheet};
+    // no-cors: GAS Web Apps redirect cross-origin so response is unreadable.
+    // If fetch does not throw, the data reached Google successfully.
+    await fetch(getUrl, {method: 'GET', mode: 'no-cors'});
+    return {synced: true};
   } catch(e) {
-    // Failed (offline or error) — add to queue
+    // Network error — queue for later
     const q = getQueue(); q.push(payload); saveQueue(q);
     updateQueueBadge();
     return {queued: true, error: e.message};

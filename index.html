@@ -364,7 +364,7 @@
   <span class="header-title">Kas</span>
   <span class="header-sub">Cash Tracker · Bali</span>
   <span class="entry-count" id="entryCount">0 entries</span>
-  <span id="queueBadge" style="display:none;background:#c0614a;color:#fff;font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;letter-spacing:.04em;cursor:pointer;" onclick="syncQueue()" title="Tap to retry sync">⏳ 0 pending</span>
+  <span id="queueBadge" style="display:none;background:#c0614a;color:#fff;font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;letter-spacing:.04em;cursor:pointer;" onclick="forceSync()" title="Tap to retry sync">⏳ 0 pending</span>
   <button onclick="openSettings()" style="background:none;border:none;color:#7a766e;font-size:20px;cursor:pointer;padding:0 0 0 8px;line-height:1;" title="Settings">⚙️</button>
 </div>
 <div id="syncIndicator" style="display:none;text-align:center;font-size:11px;padding:4px 0;background:#1a1916;border-bottom:1px solid #2e2c29;"></div>
@@ -541,27 +541,71 @@ function getQueue() {
 }
 function saveQueue(q) { localStorage.setItem('kas_sync_queue', JSON.stringify(q)); }
 
-async function syncQueue() {
+async function syncQueue(showResult) {
   const url = getWebAppUrl();
-  if (!url) return;
+  if (!url) {
+    if (showResult) alert('No Web App URL configured. Open Settings and paste your URL.');
+    return;
+  }
   const queue = getQueue();
-  if (!queue.length) return;
+  if (!queue.length) {
+    if (showResult) alert('Queue is empty - nothing to sync.');
+    return;
+  }
   const remaining = [];
+  const errors = [];
   for (const item of queue) {
     try {
       const resp = await fetch(url, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({...item, secret: getKasSecret()})
       });
-      const data = await resp.json();
-      if (!resp.ok || data.status !== 'ok') remaining.push(item);
+      let data;
+      try { data = await resp.json(); } catch(e) { data = {}; }
+      if (!resp.ok || data.status !== 'ok') {
+        remaining.push(item);
+        errors.push('HTTP ' + resp.status + ': ' + (data.message || data.error || 'Unknown error'));
+      }
     } catch(e) {
-      remaining.push(item); // offline — keep in queue
+      remaining.push(item);
+      errors.push(e.message || 'Network error');
     }
   }
   saveQueue(remaining);
   updateQueueBadge();
+  if (showResult) {
+    const synced = queue.length - remaining.length;
+    if (synced > 0 && remaining.length === 0) {
+      alert('✓ All ' + synced + ' entries synced successfully!');
+    } else if (synced > 0) {
+      alert('Synced ' + synced + ' entries.\n\nFailed (' + remaining.length + '):\n' + errors.join('\n'));
+    } else {
+      alert('Sync failed for all entries.\n\nError details:\n' + errors.slice(0,3).join('\n') + '\n\nCheck that your Web App URL is correct and the script is deployed.');
+    }
+  }
+}
+
+function viewQueue() {
+  const q = getQueue();
+  if (!q.length) { alert('Queue is empty.'); return; }
+  const lines = q.map((e,i) => {
+    const amt = e.currency === 'IDR' ? 'Rp' + Number(e.amount).toLocaleString('id-ID') : '$' + Number(e.amount).toFixed(2);
+    return (i+1) + '. ' + (e.description||'?') + ' | ' + amt + ' | ' + (e.category||'?') + ' | ' + (e.date||'?');
+  });
+  alert('QUEUED ENTRIES (' + q.length + '):\n\n' + lines.join('\n') + '\n\nIf these look correct, tap Force Sync. If the secret token or Web App URL is wrong, fix in Settings first.');
+}
+
+async function forceSync() {
+  const url = getWebAppUrl();
+  if (!url) { alert('No Web App URL set in Settings.'); return; }
+  const queue = getQueue();
+  if (!queue.length) { alert('Nothing in queue to sync.'); return; }
+  // Show what is in the queue
+  const preview = queue.map((e,i) => (i+1) + '. ' + (e.description||'?') + ' - ' + (e.currency==='IDR'?'Rp':'$') + (e.amount||0)).join('\n');
+  const go = confirm('Attempting to sync ' + queue.length + ' entr' + (queue.length===1?'y':'ies') + ':\n\n' + preview + '\n\nContinue?');
+  if (!go) return;
+  await syncQueue(true);
 }
 
 function updateQueueBadge() {
@@ -634,7 +678,20 @@ function openSettings() {
 
   document.getElementById('secretInput').value = secret;
 
+  const q = getQueue();
+  const qStatus = document.getElementById('queueStatus');
+  if (qStatus) {
+    qStatus.textContent = q.length > 0
+      ? q.length + ' entr' + (q.length===1?'y':'ies') + ' waiting to sync'
+      : 'Queue is empty - all synced';
+    qStatus.style.color = q.length > 0 ? '#d4a84b' : '#8fb89a';
+  }
+
   modal.style.display = 'flex';
+  const qi = document.getElementById('queueInfo');
+  const q2 = getQueue();
+  if (qi) qi.textContent = q2.length > 0 ? '⏳ ' + q2.length + ' entries waiting to sync' : '✓ Queue empty';
+};
 }
 
 function closeSettings() {
@@ -1058,6 +1115,10 @@ window.addEventListener('online', () => {
 
     </div>
     <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;">Save All Settings</button>
+    <div id="queueInfo" style="font-size:11px;color:#7a766e;text-align:center;margin-top:8px;"></div>
+    <button onclick="closeSettings();setTimeout(forceSync,300);" style="width:100%;padding:12px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:8px;">Force Sync Queue Now</button>
+    <button onclick="viewQueue();" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;margin-top:6px;font-family:var(--mono);">Debug: View Queued Entries</button>
+    <div id="queueStatus" style="text-align:center;font-size:11px;color:#7a766e;margin-top:8px;"></div>
     <button onclick="testApiKey()" style="width:100%;padding:11px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Test Key</button>
     <div id="testResult" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;word-break:break-all;"></div>
     <button onclick="clearSettings()" style="width:100%;padding:11px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Clear Saved Key</button>

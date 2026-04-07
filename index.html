@@ -556,11 +556,11 @@ async function syncQueue(showResult) {
   const errors = [];
   for (const item of queue) {
     try {
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({...item, secret: getKasSecret()})
-      });
+      const payload = {...item, secret: getKasSecret()};
+      // Use GET with base64-encoded data to avoid CORS preflight issues with GAS Web Apps
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const getUrl = url + '?d=' + encodeURIComponent(encoded);
+      const resp = await fetch(getUrl, {method: 'GET'});
       let data;
       try { data = await resp.json(); } catch(e) { data = {}; }
       if (!resp.ok || data.status !== 'ok') {
@@ -645,11 +645,10 @@ async function postToSheets(entry) {
   }
 
   try {
-    const resp = await fetch(url, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(payload)
-    });
+    // Use GET with base64-encoded data to avoid CORS preflight issues with GAS Web Apps
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const getUrl = url + '?d=' + encodeURIComponent(encoded);
+    const resp = await fetch(getUrl, {method: 'GET'});
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     if (data.status !== 'ok') throw new Error(data.message || 'Unknown error');

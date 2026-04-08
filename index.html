@@ -636,7 +636,7 @@ async function postToSheets(entry) {
     currency: entry.currency,
     account: entry.account,
     notes: entry.notes,
-    year: new Date(entry.date).getFullYear(),
+    year: parseInt((entry.date || new Date().toISOString().slice(0,10)).split('-')[0], 10),
     lollygaggsType: entry.lollygaggsType || 'expense',
     clientPhone: entry.clientPhone || '',
     clientName: entry.clientName || '',

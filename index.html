@@ -1109,43 +1109,48 @@ window.addEventListener('online', () => {
 </script>
 
 <!-- Settings Modal -->
-<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;padding:20px;">
-  <div style="background:#1a1916;border:1px solid #2e2c29;border-radius:16px;padding:24px;width:100%;max-width:380px;">
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
+  <div style="background:#1a1916;border:1px solid #2e2c29;border-radius:16px;padding:24px;width:100%;max-width:380px;margin:auto;">
+
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <span style="font-family:'Fraunces',serif;font-size:20px;font-weight:900;color:#d4a84b;">Settings</span>
       <button onclick="closeSettings()" style="background:none;border:none;color:#7a766e;font-size:24px;cursor:pointer;line-height:1;">×</button>
     </div>
 
+    <!-- Google Sheets Web App URL -->
     <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Google Sheets Web App URL</div>
     <div id="webAppStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">Not configured</div>
     <input id="webAppInput" type="text" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:12px;box-sizing:border-box;outline:none;">
-    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:12px;">Get this from Budget Tracker GAS → Deploy → Web App URL</div>
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:14px;">From Budget Tracker GAS → Deploy → Web App URL</div>
 
+    <!-- Cloudflare Proxy URL -->
+    <div style="font-size:10px;color:#d4a84b;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Cloudflare Proxy URL</div>
+    <div id="proxyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">Not configured — required for sync to work</div>
+    <input id="proxyInput" type="text" placeholder="https://kask-proxy.dimes87.workers.dev" style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #d4a84b;background:#232220;color:#e8e4dc;font-family:monospace;font-size:12px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:14px;">Your Cloudflare Worker URL — fixes Google CORS issues</div>
+
+    <!-- Secret Token -->
     <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Secret Token</div>
     <input id="secretInput" type="text" placeholder="kas-simon-2026" style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
-    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:16px;">Must match KAS_SECRET in your Apps Script</div>
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:14px;">Must match KAS_SECRET in Apps Script</div>
 
-    <div style="border-top:1px solid #2e2c29;padding-top:14px;margin-top:4px;">
-    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Anthropic API Key</div>
-    <div id="apiKeyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">No key set</div>
-    <input id="apiKeyInput" type="password" placeholder="sk-or-..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
-    <div style="font-size:11px;color:#7a766e;margin-top:6px;">Get a free key at <b style="color:#d4a84b;">openrouter.ai</b> → Keys → Create Key (starts with sk-or-)</div>
-
+    <!-- API Key -->
+    <div style="border-top:1px solid #2e2c29;padding-top:14px;">
+      <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">OpenRouter API Key (for receipt scanning)</div>
+      <div id="apiKeyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">No key set</div>
+      <input id="apiKeyInput" type="password" placeholder="sk-or-..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
+      <div style="font-size:11px;color:#7a766e;margin-top:6px;margin-bottom:14px;">Free key at <b style="color:#d4a84b;">openrouter.ai</b> → Keys → Create Key</div>
     </div>
-    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:16px;">Save All Settings</button>
-    <div id="queueInfo" style="font-size:11px;color:#7a766e;text-align:center;margin-top:8px;"></div>
+
+    <!-- Buttons -->
+    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:4px;">Save All Settings</button>
     <button onclick="closeSettings();setTimeout(forceSync,300);" style="width:100%;padding:12px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:8px;">Force Sync Queue Now</button>
-    <button onclick="viewQueue();" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;margin-top:6px;font-family:var(--mono);">Debug: View Queued Entries</button>
+    <button onclick="viewQueue();" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;margin-top:6px;font-family:var(--mono);">View Queued Entries</button>
     <div id="queueStatus" style="text-align:center;font-size:11px;color:#7a766e;margin-top:8px;"></div>
+    <div style="border-top:1px solid #2e2c29;margin-top:12px;padding-top:10px;">
+      <button onclick="clearSettings()" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;font-family:var(--mono);">Clear All Saved Settings</button>
     </div>
-    <div style="border-top:1px solid #2e2c29;padding-top:14px;margin-top:4px;">
-    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Cloudflare Proxy URL (recommended)</div>
-    <div id="proxyStatus" style="font-size:12px;margin-bottom:8px;color:#8fb89a;">Not set - sync may fail due to CORS</div>
-    <input id="proxyInput" type="text" placeholder="https://kask-proxy.dimes87.workers.dev" style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:12px;box-sizing:border-box;outline:none;">
-    <div style="font-size:11px;color:#7a766e;margin-top:4px;">Routes requests via Cloudflare to fix Google CORS issues</div>
-    <button onclick="testApiKey()" style="width:100%;padding:11px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Test Key</button>
-    <div id="testResult" style="font-size:12px;margin-top:8px;display:none;padding:10px;border-radius:8px;word-break:break-all;"></div>
-    <button onclick="clearSettings()" style="width:100%;padding:11px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:12px;cursor:pointer;margin-top:8px;">Clear Saved Key</button>
+
   </div>
 </div>
 

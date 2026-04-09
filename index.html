@@ -591,15 +591,77 @@ async function syncQueue(showResult) {
   }
 }
 
-function viewQueue() {
+function renderQueueManager() {
   const q = getQueue();
-  if (!q.length) { alert('Queue is empty.'); return; }
-  const lines = q.map((e,i) => {
-    const amt = e.currency === 'IDR' ? 'Rp' + Number(e.amount).toLocaleString('id-ID') : '$' + Number(e.amount).toFixed(2);
-    return (i+1) + '. ' + (e.description||'?') + ' | ' + amt + ' | ' + (e.category||'?') + ' | ' + (e.date||'?');
-  });
-  alert('QUEUED ENTRIES (' + q.length + '):\n\n' + lines.join('\n') + '\n\nIf these look correct, tap Force Sync. If the secret token or Web App URL is wrong, fix in Settings first.');
+  const el = document.getElementById('queueManager');
+  if (!el) return;
+
+  if (!q.length) {
+    el.innerHTML = '<div style="text-align:center;color:#8fb89a;font-size:11px;padding:8px;">Queue is empty — all synced</div>';
+    return;
+  }
+
+  const rows = q.map((e, i) => {
+    const amt = e.currency === 'IDR'
+      ? 'Rp' + Number(e.amount).toLocaleString('id-ID')
+      : 'A$' + Number(e.amount).toFixed(2);
+    const desc = (e.description || '?').slice(0, 22);
+    const date = (e.date || '').slice(5); // MM-DD
+    const cat  = (e.category || '?').slice(0, 14);
+    return `<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #2e2c29;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#e8e4dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc}</div>
+        <div style="font-size:10px;color:#7a766e;">${date} · ${cat} · ${amt}</div>
+      </div>
+      <button onclick="deleteQueueEntry(${i})"
+        style="flex-shrink:0;padding:4px 10px;background:transparent;color:#c0614a;border:1px solid #c0614a;border-radius:6px;font-size:11px;cursor:pointer;">✕</button>
+    </div>`;
+  }).join('');
+
+  el.innerHTML =
+    `<div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">`
+    + q.length + ` entr` + (q.length===1?'y':'ies') + ` pending</div>`
+    + rows
+    + `<button onclick="clearAllQueue()" style="width:100%;margin-top:8px;padding:8px;background:transparent;`
+    + `color:#c0614a;border:1px solid #c0614a;border-radius:8px;font-size:11px;cursor:pointer;">`
+    + `Clear all ${q.length} entr` + (q.length===1?'y':'ies') + `</button>`;
 }
+
+function deleteQueueEntry(index) {
+  const q = getQueue();
+  if (index < 0 || index >= q.length) return;
+  const entry = q[index];
+  const amt = entry.currency === 'IDR'
+    ? 'Rp' + Number(entry.amount).toLocaleString('id-ID')
+    : 'A$' + Number(entry.amount).toFixed(2);
+  const confirmed = confirm('Delete this queued entry?\n\n'
+    + (entry.description || '?') + '\n'
+    + amt + ' · ' + (entry.date || '?') + '\n\n'
+    + 'You will need to re-enter it manually.');
+  if (!confirmed) return;
+  q.splice(index, 1);
+  saveQueue(q);
+  updateQueueBadge();
+  renderQueueManager();
+  const qs = document.getElementById('queueStatus');
+  if (qs) { qs.textContent = 'Entry deleted.'; qs.style.color = '#8fb89a'; }
+}
+
+function clearAllQueue() {
+  const q = getQueue();
+  if (!q.length) return;
+  const confirmed = confirm('Delete all ' + q.length + ' queued entr' + (q.length===1?'y':'ies') + '?\n\nYou will need to re-enter them manually.');
+  if (!confirmed) return;
+  saveQueue([]);
+  updateQueueBadge();
+  renderQueueManager();
+  const qs = document.getElementById('queueStatus');
+  if (qs) { qs.textContent = 'Queue cleared.'; qs.style.color = '#8fb89a'; }
+}
+
+// Keep old names as aliases for any existing calls
+function viewQueue() { renderQueueManager(); }
+function clearQueue() { clearAllQueue(); }
 
 async function forceSync() {
   const url = getWebAppUrl();
@@ -704,6 +766,7 @@ function openSettings() {
   }
 
   modal.style.display = 'flex';
+  setTimeout(renderQueueManager, 50);
 }
 
 function closeSettings() {
@@ -1145,8 +1208,11 @@ window.addEventListener('online', () => {
     <!-- Buttons -->
     <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:4px;">Save All Settings</button>
     <button onclick="closeSettings();setTimeout(forceSync,300);" style="width:100%;padding:12px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:8px;">Force Sync Queue Now</button>
-    <button onclick="viewQueue();" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;margin-top:6px;font-family:var(--mono);">View Queued Entries</button>
-    <div id="queueStatus" style="text-align:center;font-size:11px;color:#7a766e;margin-top:8px;"></div>
+    <!-- Inline queue manager -->
+    <div style="border:1px solid #2e2c29;border-radius:8px;padding:10px;margin-top:8px;background:#0f0e0c;">
+      <div id="queueManager" style="max-height:200px;overflow-y:auto;"></div>
+    </div>
+    <div id="queueStatus" style="text-align:center;font-size:11px;color:#7a766e;margin-top:6px;"></div>
     <div style="border-top:1px solid #2e2c29;margin-top:12px;padding-top:10px;">
       <button onclick="clearSettings()" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;font-family:var(--mono);">Clear All Saved Settings</button>
     </div>

@@ -415,13 +415,19 @@
       <option value="Grab / GoFood">Grab / GoFood</option>
       <option value="Transport">Transport</option>
       <option value="Shopping">Shopping</option>
+      <option value="Entertainment">Entertainment</option>
       <option value="Health">Health</option>
       <option value="Subscriptions">Subscriptions</option>
-      <option value="Family Spending">Family Spending</option>
+      <option value="Family Living Expenses">Family Living Expenses</option>
       <option value="Own Spending">Own Spending</option>
       <option value="Wife Allowance">Wife Allowance</option>
       <option value="Uti Allowance">Uti Allowance</option>
+      <option value="School Fees">School Fees</option>
+      <option value="Electricity">Electricity</option>
+      <option value="Bills">Bills</option>
       <option value="Debt">Debt</option>
+      <option value="Savings">Savings</option>
+      <option value="Lottery">Lottery</option>
       <option value="Business">Business (Lollygaggs)</option>
       <option value="Misc">Misc / Other</option>
     </select>
@@ -468,13 +474,19 @@
     <option value="Grab / GoFood">Grab / GoFood</option>
     <option value="Transport">Transport</option>
     <option value="Shopping">Shopping</option>
+    <option value="Entertainment">Entertainment</option>
     <option value="Health">Health</option>
     <option value="Subscriptions">Subscriptions</option>
-    <option value="Family Spending">Family Spending</option>
+    <option value="Family Living Expenses">Family Living Expenses</option>
     <option value="Own Spending">Own Spending</option>
     <option value="Wife Allowance">Wife Allowance</option>
     <option value="Uti Allowance">Uti Allowance</option>
+    <option value="School Fees">School Fees</option>
+    <option value="Electricity">Electricity</option>
+    <option value="Bills">Bills</option>
     <option value="Debt">Debt</option>
+    <option value="Savings">Savings</option>
+    <option value="Lottery">Lottery</option>
     <option value="Business">Business (Lollygaggs)</option>
     <option value="Misc">Misc / Other</option>
   </select>
@@ -527,7 +539,7 @@
 </div>
 
 <script>
-const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Shopping","Health","Subscriptions","Family Spending","Own Spending","Wife Allowance","Uti Allowance","Debt","Business","Misc"];
+const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Shopping","Entertainment","Health","Subscriptions","Family Living Expenses","Own Spending","Wife Allowance","Uti Allowance","School Fees","Electricity","Bills","Debt","Savings","Lottery","Business","Misc"];
 let entries = [];
 
 // ── SETTINGS ──
@@ -925,7 +937,7 @@ const AI_PROMPT = `You are reading a receipt image. Extract the following and re
   "date": "YYYY-MM-DD or empty string if not found",
   "amount": number (total amount as a number only, no currency symbols),
   "currency": "IDR or AUD or USD — guess from context, default IDR if Bali/Indonesian receipt",
-  "category": one of exactly: Eating Out, Groceries, Grab / GoFood, Transport, Shopping, Health, Subscriptions, Family Spending, Own Spending, Wife Allowance, Uti Allowance, Debt, Business, Misc,
+  "category": one of exactly: Eating Out, Groceries, Grab / GoFood, Transport, Shopping, Entertainment, Health, Subscriptions, Family Living Expenses, Own Spending, Wife Allowance, Uti Allowance, School Fees, Electricity, Bills, Debt, Savings, Lottery, Business, Misc,
   "notes": "brief note about what was purchased, max 10 words"
 }
 Rules:

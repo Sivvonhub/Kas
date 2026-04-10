@@ -1,0 +1,1270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kas — Cash Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:ital,wght@0,300;0,600;0,900;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0e0c;
+    --surface: #1a1916;
+    --surface2: #232220;
+    --border: #2e2c29;
+    --accent: #d4a84b;
+    --accent2: #8fb89a;
+    --danger: #c0614a;
+    --text: #e8e4dc;
+    --muted: #7a766e;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Fraunces', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100dvh;
+    font-size: 14px;
+    overscroll-behavior: none;
+  }
+
+  /* Header */
+  .header {
+    padding: 20px 20px 0;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+  .header-title {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+  .header-sub {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .entry-count {
+    margin-left: auto;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 9px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    padding: 14px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    background: none;
+    font-family: var(--mono);
+  }
+  .tab.active {
+    color: var(--accent);
+    border-bottom: 2px solid var(--accent);
+    margin-bottom: -1px;
+  }
+
+  /* Panels */
+  .panel { display: none; padding: 20px; }
+  .panel.active { display: block; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .upload-zone:active { border-color: var(--accent); background: var(--surface2); }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon {
+    font-size: 36px;
+    margin-bottom: 10px;
+    display: block;
+  }
+  .upload-label {
+    font-family: var(--serif);
+    font-size: 16px;
+    color: var(--text);
+    margin-bottom: 6px;
+    font-weight: 300;
+    font-style: italic;
+  }
+  .upload-hint { font-size: 11px; color: var(--muted); }
+
+  /* Preview */
+  .img-preview {
+    width: 100%;
+    border-radius: 8px;
+    max-height: 220px;
+    object-fit: contain;
+    background: var(--surface2);
+    display: none;
+    margin-top: 12px;
+  }
+
+  /* Buttons */
+  .btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 10px;
+    border: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+    margin-top: 12px;
+  }
+  .btn-primary { background: var(--accent); color: var(--bg); }
+  .btn-primary:active { opacity: 0.85; transform: scale(0.98); }
+  .btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--accent2);
+    border: 1px solid var(--accent2);
+    margin-top: 8px;
+  }
+  .btn-ghost:active { background: rgba(143,184,154,0.1); }
+  .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+
+  /* Extracted data form */
+  .extracted-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 14px;
+    display: none;
+  }
+  .extracted-card.show { display: block; }
+  .card-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+    margin-top: 12px;
+  }
+  .card-label:first-child { margin-top: 0; }
+
+  input, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 13px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    -webkit-appearance: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a766e' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 13px center; padding-right: 32px; }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 2px solid rgba(212,168,75,0.2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .processing-msg {
+    text-align: center;
+    padding: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    display: none;
+  }
+  .processing-msg.show { display: block; }
+
+  /* Log */
+  .log-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+  .log-empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .log-empty-text { font-family: var(--serif); font-style: italic; font-size: 16px; color: var(--muted); }
+
+  .log-entry {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    animation: slideIn 0.25s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .log-entry-left { flex: 1; min-width: 0; }
+  .log-merchant {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .log-meta {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .log-cat {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 10px;
+    color: var(--accent2);
+    margin-top: 5px;
+    letter-spacing: 0.05em;
+  }
+  .log-amount {
+    font-family: var(--serif);
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--accent);
+    white-space: nowrap;
+    text-align: right;
+  }
+  .log-amount-sub { font-size: 10px; color: var(--muted); text-align: right; margin-top: 2px; }
+  .log-source-badge {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-top: 4px;
+    display: inline-block;
+  }
+  .badge-receipt { background: rgba(212,168,75,0.15); color: var(--accent); }
+  .badge-manual { background: rgba(143,184,154,0.15); color: var(--accent2); }
+  .badge-delete {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+    margin-top: -2px;
+    line-height: 1;
+  }
+
+  /* Export bar */
+  .export-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    display: none;
+    gap: 10px;
+    align-items: center;
+  }
+  .export-bar.show { display: flex; }
+  .export-summary { flex: 1; }
+  .export-summary-count { font-size: 12px; color: var(--muted); }
+  .export-summary-total { font-family: var(--serif); font-size: 20px; font-weight: 900; color: var(--accent); }
+  .btn-export {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+  .btn-export:active { opacity: 0.8; }
+
+  .log-scroll-pad { padding-bottom: 80px; }
+
+  /* Manual tab extras */
+  .currency-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* Error */
+  .error-msg {
+    background: rgba(192,97,74,0.15);
+    border: 1px solid rgba(192,97,74,0.3);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 10px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 18px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="header-title">Kas</span>
+  <span class="header-sub">Cash Tracker · Bali</span>
+  <span class="entry-count" id="entryCount">0 entries</span>
+  <span id="queueBadge" style="display:none;background:#c0614a;color:#fff;font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;letter-spacing:.04em;cursor:pointer;" onclick="forceSync()" title="Tap to retry sync">⏳ 0 pending</span>
+  <button onclick="openSettings()" style="background:none;border:none;color:#7a766e;font-size:20px;cursor:pointer;padding:0 0 0 8px;line-height:1;" title="Settings">⚙️</button>
+</div>
+<div id="syncIndicator" style="display:none;text-align:center;font-size:11px;padding:4px 0;background:#1a1916;border-bottom:1px solid #2e2c29;"></div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('receipt')">📷 Receipt</button>
+  <button class="tab" onclick="switchTab('manual')">✏️ Manual</button>
+</div>
+
+<!-- RECEIPT TAB -->
+<div class="panel active" id="panel-receipt">
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" accept="image/*" id="fileInput" onchange="handleFile(event)">
+    <span class="upload-icon">📄</span>
+    <div class="upload-label">Tap to photograph receipt</div>
+    <div class="upload-hint">JPG, PNG — uses your camera</div>
+  </div>
+  <img id="imgPreview" class="img-preview" alt="Receipt preview">
+
+  <div class="processing-msg" id="processingMsg">
+    <div><span class="spinner"></span>Reading receipt...</div>
+    <div style="margin-top:8px;font-size:11px;">This takes a few seconds</div>
+  </div>
+
+  <div class="error-msg" id="receiptError"></div>
+
+  <div class="extracted-card" id="extractedCard">
+    <div class="card-label">Merchant / Description</div>
+    <input type="text" id="r_merchant" placeholder="e.g. Indomaret Kerobokan">
+
+    <div class="card-label">Date</div>
+    <input type="date" id="r_date">
+
+    <div class="card-label">Amount</div>
+    <div class="currency-row">
+      <input type="text" id="r_amount" placeholder="0" inputmode="numeric" oninput="formatAmountInput(this,'r_currency')" onblur="formatAmountInput(this,'r_currency')">
+      <select id="r_currency" onchange="formatAmountInput(document.getElementById('r_amount'),'r_currency')">
+        <option value="IDR">IDR (Rp)</option>
+        <option value="AUD">AUD ($)</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+
+    <div class="card-label">Category</div>
+    <select id="r_category">
+      <option value="Eating Out">Eating Out</option>
+      <option value="Groceries">Groceries</option>
+      <option value="Grab / GoFood">Grab / GoFood</option>
+      <option value="Transport">Transport</option>
+      <option value="Shopping">Shopping</option>
+      <option value="Entertainment">Entertainment</option>
+      <option value="Health">Health</option>
+      <option value="Subscriptions">Subscriptions</option>
+      <option value="Family Living Expenses">Family Living Expenses</option>
+      <option value="Own Spending">Own Spending</option>
+      <option value="Wife Allowance">Wife Allowance</option>
+      <option value="Uti Allowance">Uti Allowance</option>
+      <option value="School Fees">School Fees</option>
+      <option value="Electricity">Electricity</option>
+      <option value="Bills">Bills</option>
+      <option value="Debt">Debt</option>
+      <option value="Savings">Savings</option>
+      <option value="Lottery">Lottery</option>
+      <option value="Business">Business (Lollygaggs)</option>
+      <option value="Misc">Misc / Other</option>
+    </select>
+
+    <div class="card-label">Account</div>
+    <select id="r_account">
+      <option value="Cash">Cash</option>
+      <option value="Up Bank">Up Bank</option>
+      <option value="Macquarie">Macquarie</option>
+      <option value="Great Southern">Great Southern</option>
+      <option value="BCA (Own)">BCA (Own)</option>
+    </select>
+
+    <div class="card-label">Notes</div>
+    <input type="text" id="r_notes" placeholder="Optional">
+
+    <button class="btn btn-primary" onclick="addReceiptEntry()">+ Add to Log</button>
+    <button class="btn btn-ghost" onclick="resetReceipt()">Scan Another</button>
+  </div>
+</div>
+
+<!-- MANUAL TAB -->
+<div class="panel" id="panel-manual">
+  <div class="card-label" style="margin-bottom:4px;">Description</div>
+  <input type="text" id="m_merchant" placeholder="e.g. Warung lunch, ojek, market">
+
+  <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Date</div>
+  <input type="date" id="m_date">
+
+  <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Amount</div>
+  <div class="currency-row">
+    <input type="text" id="m_amount" placeholder="0" inputmode="numeric" oninput="formatAmountInput(this,'m_currency')" onblur="formatAmountInput(this,'m_currency')">
+    <select id="m_currency" onchange="formatAmountInput(document.getElementById('m_amount'),'m_currency')">
+      <option value="IDR">IDR (Rp)</option>
+      <option value="AUD">AUD ($)</option>
+      <option value="USD">USD</option>
+    </select>
+  </div>
+
+  <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Category</div>
+  <select id="m_category" onchange="toggleLollygaggsFields(this)">
+    <option value="Eating Out">Eating Out</option>
+    <option value="Groceries">Groceries</option>
+    <option value="Grab / GoFood">Grab / GoFood</option>
+    <option value="Transport">Transport</option>
+    <option value="Shopping">Shopping</option>
+    <option value="Entertainment">Entertainment</option>
+    <option value="Health">Health</option>
+    <option value="Subscriptions">Subscriptions</option>
+    <option value="Family Living Expenses">Family Living Expenses</option>
+    <option value="Own Spending">Own Spending</option>
+    <option value="Wife Allowance">Wife Allowance</option>
+    <option value="Uti Allowance">Uti Allowance</option>
+    <option value="School Fees">School Fees</option>
+    <option value="Electricity">Electricity</option>
+    <option value="Bills">Bills</option>
+    <option value="Debt">Debt</option>
+    <option value="Savings">Savings</option>
+    <option value="Lottery">Lottery</option>
+    <option value="Business">Business (Lollygaggs)</option>
+    <option value="Misc">Misc / Other</option>
+  </select>
+
+  <div id="lollygaggsFields" style="display:none;">
+    <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Lollygaggs — Service Type</div>
+    <select id="m_lollyType">
+      <option value="nail">Nail Service</option>
+      <option value="eyelash">Eyelash Service</option>
+      <option value="expense">Business Expense</option>
+    </select>
+    <div class="card-label" style="margin-top:10px;margin-bottom:4px;">Client Phone (if service)</div>
+    <input type="tel" id="m_clientPhone" placeholder="+62 812 xxxx xxxx">
+    <div class="card-label" style="margin-top:10px;margin-bottom:4px;">Client Name</div>
+    <input type="text" id="m_clientName" placeholder="Optional">
+  </div>
+
+  <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Account</div>
+  <select id="m_account">
+    <option value="Cash">Cash</option>
+    <option value="Up Bank">Up Bank</option>
+    <option value="Macquarie">Macquarie</option>
+    <option value="Great Southern">Great Southern</option>
+    <option value="BCA (Own)">BCA (Own)</option>
+  </select>
+
+  <div class="card-label" style="margin-top:14px;margin-bottom:4px;">Notes (optional)</div>
+  <input type="text" id="m_notes" placeholder="e.g. with family, for work">
+
+  <button class="btn btn-primary" onclick="addManualEntry()" style="margin-top:18px;">+ Add to Log</button>
+
+  <hr class="divider">
+
+  <!-- Log preview inside manual tab on mobile -->
+  <div id="logPreviewManual"></div>
+</div>
+
+<!-- LOG PANEL shown as part of receipt tab scroll -->
+<div class="panel active" id="logArea" style="padding-top:0; display:block;">
+  <div id="logContainer" class="log-scroll-pad"></div>
+</div>
+
+<!-- Export bar -->
+<div class="export-bar" id="exportBar">
+  <div class="export-summary">
+    <div class="export-summary-count" id="exportCount">0 entries</div>
+    <div class="export-summary-total" id="exportTotal">Rp 0</div>
+  </div>
+  <button class="btn-export" onclick="exportCSV()">Export CSV ↓</button>
+</div>
+
+<script>
+const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Shopping","Entertainment","Health","Subscriptions","Family Living Expenses","Own Spending","Wife Allowance","Uti Allowance","School Fees","Electricity","Bills","Debt","Savings","Lottery","Business","Misc"];
+let entries = [];
+
+// ── SETTINGS ──
+function getApiKey() { return localStorage.getItem('kas_api_key') || ''; }
+function getWebAppUrl() { return localStorage.getItem('kas_webapp_url') || ''; }
+function getKasSecret() { return localStorage.getItem('kas_secret') || 'kas-simon-2026'; }
+function getProxyUrl() { return localStorage.getItem('kas_proxy_url') || ''; }
+
+// ── OFFLINE QUEUE ──
+function getQueue() {
+  try { return JSON.parse(localStorage.getItem('kas_sync_queue') || '[]'); } catch(e) { return []; }
+}
+function saveQueue(q) { localStorage.setItem('kas_sync_queue', JSON.stringify(q)); }
+
+async function syncQueue(showResult) {
+  const url = getWebAppUrl();
+  if (!url) {
+    if (showResult) alert('No Web App URL configured. Open Settings and paste your URL.');
+    return;
+  }
+  const queue = getQueue();
+  if (!queue.length) {
+    if (showResult) alert('Queue is empty - nothing to sync.');
+    return;
+  }
+  const remaining = [];
+  const errors = [];
+  for (const item of queue) {
+    try {
+      const payload = {...item, secret: getKasSecret()};
+      const gasUrl = url; // the GAS URL stored in settings
+      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const gasWithData = gasUrl + '?d=' + encodeURIComponent(encoded);
+      // Route via Cloudflare proxy to avoid CORS redirect issues
+      const proxyUrl = getProxyUrl();
+      const fetchUrl = proxyUrl
+        ? proxyUrl + '?target=' + encodeURIComponent(gasWithData)
+        : gasWithData;
+      const resp = await fetch(fetchUrl, {method: 'GET'});
+      let data;
+      try { data = await resp.json(); } catch(e) { data = {}; }
+      if (!resp.ok || data.status !== 'ok') {
+        remaining.push(item);
+        errors.push('HTTP ' + resp.status + ': ' + (data.message || data.error || 'Sync failed'));
+      }
+    } catch(e) {
+      remaining.push(item);
+      errors.push(e.message || 'Network error - check connection');
+    }
+  }
+  saveQueue(remaining);
+  updateQueueBadge();
+  if (showResult) {
+    const failed = remaining.length;
+    const sent = queue.length - failed;
+    if (failed === 0) {
+      alert('✓ ' + sent + ' entr' + (sent===1?'y':'ies') + ' sent to Google Sheets!\n\nCheck your Transactions sheet to confirm they appeared.');
+    } else {
+      alert('Sent: ' + sent + '\nFailed (no connection): ' + failed + '\n\n' + errors.slice(0,3).join('\n'));
+    }
+  }
+}
+
+function renderQueueManager() {
+  const q = getQueue();
+  const el = document.getElementById('queueManager');
+  if (!el) return;
+
+  if (!q.length) {
+    el.innerHTML = '<div style="text-align:center;color:#8fb89a;font-size:11px;padding:8px;">Queue is empty — all synced</div>';
+    return;
+  }
+
+  const rows = q.map((e, i) => {
+    const amt = e.currency === 'IDR'
+      ? 'Rp' + Number(e.amount).toLocaleString('id-ID')
+      : 'A$' + Number(e.amount).toFixed(2);
+    const desc = (e.description || '?').slice(0, 22);
+    const date = (e.date || '').slice(5); // MM-DD
+    const cat  = (e.category || '?').slice(0, 14);
+    return `<div style="display:flex;align-items:center;gap:6px;padding:7px 0;border-bottom:1px solid #2e2c29;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:#e8e4dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${desc}</div>
+        <div style="font-size:10px;color:#7a766e;">${date} · ${cat} · ${amt}</div>
+      </div>
+      <button onclick="deleteQueueEntry(${i})"
+        style="flex-shrink:0;padding:4px 10px;background:transparent;color:#c0614a;border:1px solid #c0614a;border-radius:6px;font-size:11px;cursor:pointer;">✕</button>
+    </div>`;
+  }).join('');
+
+  el.innerHTML =
+    `<div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">`
+    + q.length + ` entr` + (q.length===1?'y':'ies') + ` pending</div>`
+    + rows
+    + `<button onclick="clearAllQueue()" style="width:100%;margin-top:8px;padding:8px;background:transparent;`
+    + `color:#c0614a;border:1px solid #c0614a;border-radius:8px;font-size:11px;cursor:pointer;">`
+    + `Clear all ${q.length} entr` + (q.length===1?'y':'ies') + `</button>`;
+}
+
+function deleteQueueEntry(index) {
+  const q = getQueue();
+  if (index < 0 || index >= q.length) return;
+  const entry = q[index];
+  const amt = entry.currency === 'IDR'
+    ? 'Rp' + Number(entry.amount).toLocaleString('id-ID')
+    : 'A$' + Number(entry.amount).toFixed(2);
+  const confirmed = confirm('Delete this queued entry?\n\n'
+    + (entry.description || '?') + '\n'
+    + amt + ' · ' + (entry.date || '?') + '\n\n'
+    + 'You will need to re-enter it manually.');
+  if (!confirmed) return;
+  q.splice(index, 1);
+  saveQueue(q);
+  updateQueueBadge();
+  renderQueueManager();
+  const qs = document.getElementById('queueStatus');
+  if (qs) { qs.textContent = 'Entry deleted.'; qs.style.color = '#8fb89a'; }
+}
+
+function clearAllQueue() {
+  const q = getQueue();
+  if (!q.length) return;
+  const confirmed = confirm('Delete all ' + q.length + ' queued entr' + (q.length===1?'y':'ies') + '?\n\nYou will need to re-enter them manually.');
+  if (!confirmed) return;
+  saveQueue([]);
+  updateQueueBadge();
+  renderQueueManager();
+  const qs = document.getElementById('queueStatus');
+  if (qs) { qs.textContent = 'Queue cleared.'; qs.style.color = '#8fb89a'; }
+}
+
+// Keep old names as aliases for any existing calls
+function viewQueue() { renderQueueManager(); }
+function clearQueue() { clearAllQueue(); }
+
+async function forceSync() {
+  const url = getWebAppUrl();
+  if (!url) { alert('No Web App URL set in Settings.'); return; }
+  const queue = getQueue();
+  if (!queue.length) { alert('Nothing in queue to sync.'); return; }
+  // Show what is in the queue
+  const preview = queue.map((e,i) => (i+1) + '. ' + (e.description||'?') + ' - ' + (e.currency==='IDR'?'Rp':'$') + (e.amount||0)).join('\n');
+  const go = confirm('Attempting to sync ' + queue.length + ' entr' + (queue.length===1?'y':'ies') + ':\n\n' + preview + '\n\nContinue?');
+  if (!go) return;
+  await syncQueue(true);
+}
+
+function updateQueueBadge() {
+  const q = getQueue();
+  const badge = document.getElementById('queueBadge');
+  if (!badge) return;
+  if (q.length > 0) {
+    badge.textContent = q.length + ' pending';
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function postToSheets(entry) {
+  const url = getWebAppUrl();
+  const payload = {
+    secret: getKasSecret(),
+    date: entry.date,
+    description: entry.merchant,
+    category: entry.category,
+    amount: entry.rawAmount,
+    currency: entry.currency,
+    account: entry.account,
+    notes: entry.notes,
+    year: parseInt((entry.date || new Date().toISOString().slice(0,10)).split('-')[0], 10),
+    lollygaggsType: entry.lollygaggsType || 'expense',
+    clientPhone: entry.clientPhone || '',
+    clientName: entry.clientName || '',
+  };
+
+  if (!url) {
+    // No web app configured — add to queue silently
+    const q = getQueue(); q.push(payload); saveQueue(q);
+    updateQueueBadge();
+    return {queued: true};
+  }
+
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    const gasWithData = url + '?d=' + encodeURIComponent(encoded);
+    const proxyUrl = getProxyUrl();
+    const fetchUrl = proxyUrl
+      ? proxyUrl + '?target=' + encodeURIComponent(gasWithData)
+      : gasWithData;
+    const resp = await fetch(fetchUrl, {method: 'GET'});
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    if (data.status !== 'ok') throw new Error(data.message || 'Sync failed');
+    return {synced: true, sheet: data.sheet};
+  } catch(e) {
+    // Network error — queue for later
+    const q = getQueue(); q.push(payload); saveQueue(q);
+    updateQueueBadge();
+    return {queued: true, error: e.message};
+  }
+}
+
+function openSettings() {
+  const apiKey = getApiKey();
+  const webApp = getWebAppUrl();
+  const secret = getKasSecret();
+  const modal = document.getElementById('settingsModal');
+
+  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('apiKeyStatus').textContent = apiKey ? '✓ Key saved (' + apiKey.slice(0,12) + '...)' : 'No key set';
+  document.getElementById('apiKeyStatus').style.color = apiKey ? '#8fb89a' : '#e07060';
+
+  document.getElementById('webAppInput').value = webApp;
+  document.getElementById('webAppStatus').textContent = webApp ? '✓ Configured' : 'Not configured — entries will queue until set';
+  document.getElementById('webAppStatus').style.color = webApp ? '#8fb89a' : '#e07060';
+
+  document.getElementById('secretInput').value = secret;
+
+  const q = getQueue();
+  const qStatus = document.getElementById('queueStatus');
+  if (qStatus) {
+    qStatus.textContent = q.length > 0
+      ? q.length + ' entr' + (q.length===1?'y':'ies') + ' waiting to sync'
+      : 'Queue is empty - all synced';
+    qStatus.style.color = q.length > 0 ? '#d4a84b' : '#8fb89a';
+  }
+
+  const proxyUrl = getProxyUrl();
+  const proxyInput = document.getElementById('proxyInput');
+  const proxyStatus = document.getElementById('proxyStatus');
+  if (proxyInput) proxyInput.value = proxyUrl;
+  if (proxyStatus) {
+    proxyStatus.textContent = proxyUrl ? '✓ Proxy configured' : 'Not set - sync may fail due to CORS';
+    proxyStatus.style.color = proxyUrl ? '#8fb89a' : '#e07060';
+  }
+
+  modal.style.display = 'flex';
+  setTimeout(renderQueueManager, 50);
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+function saveSettings() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key && key.length < 10) { alert('That does not look like a valid API key.'); return; }
+  if (key) {
+    localStorage.setItem('kas_api_key', key);
+    document.getElementById('apiKeyStatus').textContent = '✓ Key saved (' + key.slice(0,12) + '...)';
+    document.getElementById('apiKeyStatus').style.color = '#8fb89a';
+  }
+  const webApp = document.getElementById('webAppInput').value.trim();
+  if (webApp) {
+    localStorage.setItem('kas_webapp_url', webApp);
+    document.getElementById('webAppStatus').textContent = '✓ Configured';
+    document.getElementById('webAppStatus').style.color = '#8fb89a';
+  }
+  const secret = document.getElementById('secretInput').value.trim();
+  if (secret) localStorage.setItem('kas_secret', secret);
+  const banner = document.getElementById('noBanner');
+  if (banner) banner.remove();
+  const proxy = document.getElementById('proxyInput');
+  if (proxy && proxy.value.trim()) {
+    localStorage.setItem('kas_proxy_url', proxy.value.trim());
+    const ps = document.getElementById('proxyStatus');
+    if (ps) { ps.textContent = '✓ Proxy configured'; ps.style.color = '#8fb89a'; }
+  }
+
+  closeSettings();
+  if (webApp || getProxyUrl()) {
+    syncQueue(false).then(() => updateQueueBadge());
+    const q = getQueue();
+    if (q.length > 0) alert('Settings saved! Syncing ' + q.length + ' queued entries now...');
+  }
+}
+
+function clearSettings() {
+  localStorage.removeItem('kas_api_key');
+  document.getElementById('apiKeyInput').value = '';
+  document.getElementById('apiKeyStatus').textContent = 'Key cleared';
+  document.getElementById('apiKeyStatus').style.color = '#e07060';
+}
+
+async function testApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim() || getApiKey();
+  const resultEl = document.getElementById('testResult');
+  resultEl.style.display = 'block';
+  resultEl.style.background = '#232220';
+  resultEl.style.color = '#7a766e';
+  resultEl.textContent = 'Testing...';
+
+  if (!key) {
+    resultEl.style.color = '#e07060';
+    resultEl.textContent = 'No key entered.';
+    return;
+  }
+
+  try {
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + key,
+        'HTTP-Referer': 'https://sivvonhub.github.io/Kas',
+        'X-Title': 'Kas Receipt Scanner'
+      },
+      body: JSON.stringify({
+        model: 'openrouter/auto',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Hi' }]
+      })
+    });
+
+    const raw = await resp.text();
+    if (resp.ok) {
+      resultEl.style.color = '#8fb89a';
+      resultEl.textContent = '✓ Key works! OpenRouter connected.';
+    } else {
+      resultEl.style.color = '#e07060';
+      resultEl.textContent = '✗ Error ' + resp.status + ': ' + raw.slice(0, 200);
+    }
+  } catch (err) {
+    resultEl.style.color = '#e07060';
+    resultEl.textContent = '✗ Network error: ' + err.message;
+  }
+}
+
+function checkApiKey() {
+  if (!getApiKey()) {
+    const b = document.createElement('div');
+    b.id = 'noBanner';
+    b.style.cssText = 'background:#c0614a22;border:1px solid #c0614a55;border-radius:8px;padding:11px 14px;margin:0 0 12px;font-size:12px;color:#e07060;cursor:pointer;';
+    b.innerHTML = '⚠️ <b>API key needed for receipt scanning.</b><br>Tap ⚙️ in the top right to add your key.';
+    const zone = document.getElementById('uploadZone');
+    zone.parentNode.insertBefore(b, zone);
+  }
+}
+
+// Set today's date on load
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('r_date').value = today;
+document.getElementById('m_date').value = today;
+checkApiKey();
+
+function toggleLollygaggsFields(selectEl) {
+  const fields = document.getElementById('lollygaggsFields');
+  if (!fields) return;
+  fields.style.display = selectEl.value === 'Business' ? 'block' : 'none';
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel:not(#logArea)').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ── FILE HANDLING ──
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const preview = document.getElementById('imgPreview');
+    preview.src = ev.target.result;
+    preview.style.display = 'block';
+    analyzeReceipt(ev.target.result.split(',')[1], file.type);
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── IDR AMOUNT FORMATTING ──
+function formatAmountInput(input, currencySelectId) {
+  const currency = document.getElementById(currencySelectId).value;
+  let raw = input.value.replace(/[^\d.]/g, '');
+  if (!raw) return;
+  if (currency === 'IDR') {
+    const int = parseInt(raw.replace(/\./g, ''), 10);
+    if (!isNaN(int)) input.value = int.toLocaleString('id-ID');
+  } else {
+    input.value = raw;
+  }
+}
+
+function getRawAmount(inputId, currencySelectId) {
+  const raw = document.getElementById(inputId).value.replace(/[^\d.]/g, '');
+  const num = parseFloat(raw);
+  if (!isNaN(num) && currencySelectId) {
+    const cur = document.getElementById(currencySelectId)?.value;
+    // Warn if IDR amount looks like it was entered in thousands (under 1000 Rp is virtually nothing)
+    if (cur === 'IDR' && num > 0 && num < 1000) {
+      const confirmed = confirm(
+        'IDR amount looks very small: Rp' + num.toLocaleString('id-ID') + '\n\n' +
+        'In Bali, almost nothing costs less than Rp1,000.\n' +
+        'Did you mean Rp' + (num * 1000).toLocaleString('id-ID') + '?\n\n' +
+        'Tap OK to multiply by 1000 (correct)\n' +
+        'Tap Cancel to keep Rp' + num.toLocaleString('id-ID') + ' (rare)'
+      );
+      if (confirmed) {
+        const corrected = num * 1000;
+        document.getElementById(inputId).value = corrected;
+        return corrected;
+      }
+    }
+  }
+  return num;
+}
+
+function buildAiPrompt() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const thisYear = new Date().getFullYear();
+  return `You are reading a receipt image. Today's date is ${todayStr}. Extract the following and return ONLY valid JSON, no markdown:
+{
+  "merchant": "store or restaurant name",
+  "date": "YYYY-MM-DD — use the date printed on the receipt. If the year is unclear or missing, assume ${thisYear}. If no date found use ${todayStr}.",
+  "amount": number (total amount as a number only, no currency symbols),
+  "currency": "IDR or AUD or USD — guess from context, default IDR if Bali/Indonesian receipt",
+  "category": one of exactly: Eating Out, Groceries, Grab / GoFood, Transport, Shopping, Entertainment, Health, Subscriptions, Family Living Expenses, Own Spending, Wife Allowance, Uti Allowance, School Fees, Electricity, Bills, Debt, Savings, Lottery, Business, Misc,
+  "notes": "brief note about what was purchased, max 10 words"
+}
+Rules:
+- Eating Out = sit-down restaurant or warung meal
+- Groceries = supermarket, Indomaret, Alfamart, market food shopping
+- Grab / GoFood = food delivery or Grab transport
+- The current year is ${thisYear}. If the year on the receipt is unclear, ALWAYS use ${thisYear}. Never return any other year unless you can clearly read it on the receipt.
+If you cannot read the receipt clearly, make your best guess. Always return valid JSON.`;
+}
+
+async function analyzeReceipt(base64, mimeType) {
+  document.getElementById('processingMsg').classList.add('show');
+  document.getElementById('extractedCard').classList.remove('show');
+  document.getElementById('receiptError').classList.remove('show');
+
+  try {
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + getApiKey(),
+        'HTTP-Referer': 'https://sivvonhub.github.io/Kas',
+        'X-Title': 'Kas Receipt Scanner'
+      },
+      body: JSON.stringify({
+        model: 'openrouter/auto',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'data:' + mimeType + ';base64,' + base64 } },
+            { type: 'text', text: buildAiPrompt() }
+          ]
+        }]
+      })
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(JSON.stringify(data));
+    const text = data.choices?.[0]?.message?.content || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    document.getElementById('r_merchant').value = parsed.merchant || '';
+    // Validate the AI-returned date — fix wrong year if needed
+    let aiDate = parsed.date || today;
+    if (aiDate) {
+      const aiYear = parseInt(aiDate.split('-')[0], 10);
+      const thisYear = new Date().getFullYear();
+      if (isNaN(aiYear) || aiYear !== thisYear) {
+        // AI returned wrong year — always correct to current year
+        aiDate = String(thisYear) + aiDate.slice(4);
+      }
+    }
+    document.getElementById('r_date').value = aiDate || today;
+    document.getElementById('r_currency').value = parsed.currency || 'IDR';
+    const amtField = document.getElementById('r_amount');
+    amtField.value = parsed.amount || '';
+    formatAmountInput(amtField, 'r_currency');
+    document.getElementById('r_category').value = CATEGORIES.includes(parsed.category) ? parsed.category : 'Misc';
+    document.getElementById('r_notes').value = parsed.notes || '';
+
+    document.getElementById('extractedCard').classList.add('show');
+  } catch (err) {
+    const errEl = document.getElementById('receiptError');
+    errEl.textContent = 'Could not read receipt. Please fill in manually below.';
+    errEl.classList.add('show');
+    document.getElementById('extractedCard').classList.add('show');
+  } finally {
+    document.getElementById('processingMsg').classList.remove('show');
+  }
+}
+
+// ── ENTRIES ──
+function addReceiptEntry() {
+  const merchant = document.getElementById('r_merchant').value.trim();
+  const amount = getRawAmount('r_amount', 'r_currency');
+  if (!merchant || isNaN(amount) || amount <= 0) {
+    alert('Please enter a merchant and a valid amount.');
+    return;
+  }
+  const entry = {
+    date: document.getElementById('r_date').value || today,
+    merchant,
+    detail: merchant,
+    category: document.getElementById('r_category').value,
+    amountAUD: document.getElementById('r_currency').value === 'AUD' ? amount : '',
+    amountIDR: document.getElementById('r_currency').value === 'IDR' ? amount : '',
+    currency: document.getElementById('r_currency').value,
+    rawAmount: amount,
+    account: document.getElementById('r_account').value,
+    notes: document.getElementById('r_notes').value,
+    source: 'receipt'
+  };
+  entries.push(entry);
+  postToSheets(entry).then(result => {
+    const indicator = document.getElementById('syncIndicator');
+    if (indicator) {
+      indicator.textContent = result.synced ? '✓ Synced to sheet' : '⏳ Saved — will sync when online';
+      indicator.style.color = result.synced ? '#8fb89a' : '#d4a84b';
+      indicator.style.display = 'block';
+      setTimeout(() => indicator.style.display = 'none', 3000);
+    }
+  });
+  renderLog();
+  resetReceipt();
+}
+
+function addManualEntry() {
+  const merchant = document.getElementById('m_merchant').value.trim();
+  const amount = getRawAmount('m_amount', 'm_currency');
+  if (!merchant || isNaN(amount) || amount <= 0) {
+    alert('Please enter a description and a valid amount.');
+    return;
+  }
+  const mEntry = {
+    date: document.getElementById('m_date').value || today,
+    merchant,
+    detail: merchant,
+    category: document.getElementById('m_category').value,
+    amountAUD: document.getElementById('m_currency').value === 'AUD' ? amount : '',
+    amountIDR: document.getElementById('m_currency').value === 'IDR' ? amount : '',
+    currency: document.getElementById('m_currency').value,
+    rawAmount: amount,
+    account: document.getElementById('m_account').value,
+    notes: document.getElementById('m_notes').value,
+    source: 'manual',
+    lollygaggsType: document.getElementById('m_lollyType')?.value || 'expense',
+    clientPhone: document.getElementById('m_clientPhone')?.value.trim() || '',
+    clientName: document.getElementById('m_clientName')?.value.trim() || '',
+  };
+  entries.push(mEntry);
+  postToSheets(mEntry).then(result => {
+    const indicator = document.getElementById('syncIndicator');
+    if (indicator) {
+      indicator.textContent = result.synced ? '✓ Synced to sheet' : '⏳ Saved — will sync when online';
+      indicator.style.color = result.synced ? '#8fb89a' : '#d4a84b';
+      indicator.style.display = 'block';
+      setTimeout(() => indicator.style.display = 'none', 3000);
+    }
+  });
+  // Reset manual form
+  document.getElementById('m_merchant').value = '';
+  document.getElementById('m_amount').value = '';
+  document.getElementById('m_notes').value = '';
+  document.getElementById('m_date').value = today;
+  renderLog();
+}
+
+function deleteEntry(i) {
+  entries.splice(i, 1);
+  renderLog();
+}
+
+function resetReceipt() {
+  document.getElementById('fileInput').value = '';
+  document.getElementById('imgPreview').style.display = 'none';
+  document.getElementById('extractedCard').classList.remove('show');
+  document.getElementById('processingMsg').classList.remove('show');
+  document.getElementById('receiptError').classList.remove('show');
+  document.getElementById('r_date').value = today;
+  document.getElementById('r_amount').value = '';
+  document.getElementById('r_merchant').value = '';
+  document.getElementById('r_notes').value = '';
+}
+
+// ── RENDER ──
+function fmtAmount(entry) {
+  if (entry.currency === 'IDR') return 'Rp ' + entry.rawAmount.toLocaleString('id-ID');
+  if (entry.currency === 'AUD') return 'A$' + entry.rawAmount.toFixed(2);
+  return entry.currency + ' ' + entry.rawAmount;
+}
+
+function renderLog() {
+  const container = document.getElementById('logContainer');
+  document.getElementById('entryCount').textContent = entries.length + ' ' + (entries.length === 1 ? 'entry' : 'entries');
+
+  if (entries.length === 0) {
+    container.innerHTML = `<div class="log-empty">
+      <div class="log-empty-icon">🧾</div>
+      <div class="log-empty-text">No entries yet.<br>Scan a receipt or add manually.</div>
+    </div>`;
+    document.getElementById('exportBar').classList.remove('show');
+    return;
+  }
+
+  container.innerHTML = entries.map((e, i) => `
+    <div class="log-entry">
+      <div class="log-entry-left">
+        <div class="log-merchant">${e.merchant}</div>
+        <div class="log-meta">${e.date} · ${e.account}</div>
+        <span class="log-cat">${e.category}</span><br>
+        <span class="log-source-badge ${e.source === 'receipt' ? 'badge-receipt' : 'badge-manual'}">${e.source}</span>
+      </div>
+      <div>
+        <div class="log-amount">${fmtAmount(e)}</div>
+        ${e.notes ? `<div class="log-amount-sub">${e.notes}</div>` : ''}
+        <button class="badge-delete" onclick="deleteEntry(${i})">×</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Export bar totals
+  const idrTotal = entries.filter(e => e.currency === 'IDR').reduce((s, e) => s + e.rawAmount, 0);
+  const audTotal = entries.filter(e => e.currency === 'AUD').reduce((s, e) => s + e.rawAmount, 0);
+  let totalStr = '';
+  if (idrTotal > 0) totalStr += 'Rp ' + idrTotal.toLocaleString('id-ID');
+  if (audTotal > 0) totalStr += (totalStr ? ' + ' : '') + 'A$' + audTotal.toFixed(2);
+  document.getElementById('exportCount').textContent = entries.length + ' entries';
+  document.getElementById('exportTotal').textContent = totalStr || '—';
+  document.getElementById('exportBar').classList.add('show');
+}
+
+// ── CSV EXPORT ──
+function exportCSV() {
+  // Columns matching the Budget Tracker Transaction Log sheet:
+  // Date, Description, Detail/Merchant, Category, AUD Amount, IDR Amount, Currency Paid, Account, Notes
+  const header = ['Date','Description','Detail / Merchant','Category','AUD Amount','IDR Amount','Currency Paid','Account','Notes'];
+  const rows = entries.map(e => [
+    e.date,
+    e.merchant,
+    e.detail,
+    e.category,
+    e.amountAUD,
+    e.amountIDR,
+    e.currency,
+    e.account,
+    e.notes
+  ]);
+
+  const csv = [header, ...rows].map(r =>
+    r.map(v => {
+      const s = String(v ?? '');
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')
+  ).join('\r\n');
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().split('T')[0];
+  a.href = url;
+  a.download = `kas-export-${dateStr}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Init
+renderLog();
+updateQueueBadge();
+// Sync queued entries when app loads or connectivity resumes
+syncQueue();
+window.addEventListener('online', () => {
+  syncQueue().then(() => updateQueueBadge());
+});
+</script>
+
+<!-- Settings Modal -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;padding:20px;overflow-y:auto;">
+  <div style="background:#1a1916;border:1px solid #2e2c29;border-radius:16px;padding:24px;width:100%;max-width:380px;margin:auto;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-family:'Fraunces',serif;font-size:20px;font-weight:900;color:#d4a84b;">Settings</span>
+      <button onclick="closeSettings()" style="background:none;border:none;color:#7a766e;font-size:24px;cursor:pointer;line-height:1;">×</button>
+    </div>
+
+    <!-- Google Sheets Web App URL -->
+    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Google Sheets Web App URL</div>
+    <div id="webAppStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">Not configured</div>
+    <input id="webAppInput" type="text" placeholder="https://script.google.com/macros/s/..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:12px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:14px;">From Budget Tracker GAS → Deploy → Web App URL</div>
+
+    <!-- Cloudflare Proxy URL -->
+    <div style="font-size:10px;color:#d4a84b;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Cloudflare Proxy URL</div>
+    <div id="proxyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">Not configured — required for sync to work</div>
+    <input id="proxyInput" type="text" placeholder="https://kask-proxy.dimes87.workers.dev" style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #d4a84b;background:#232220;color:#e8e4dc;font-family:monospace;font-size:12px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:14px;">Your Cloudflare Worker URL — fixes Google CORS issues</div>
+
+    <!-- Secret Token -->
+    <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">Secret Token</div>
+    <input id="secretInput" type="text" placeholder="kas-simon-2026" style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
+    <div style="font-size:11px;color:#7a766e;margin-top:4px;margin-bottom:14px;">Must match KAS_SECRET in Apps Script</div>
+
+    <!-- API Key -->
+    <div style="border-top:1px solid #2e2c29;padding-top:14px;">
+      <div style="font-size:10px;color:#7a766e;text-transform:uppercase;letter-spacing:.12em;margin-bottom:6px;">OpenRouter API Key (for receipt scanning)</div>
+      <div id="apiKeyStatus" style="font-size:12px;margin-bottom:8px;color:#e07060;">No key set</div>
+      <input id="apiKeyInput" type="password" placeholder="sk-or-..." style="width:100%;padding:11px 13px;border-radius:8px;border:1px solid #2e2c29;background:#232220;color:#e8e4dc;font-family:monospace;font-size:13px;box-sizing:border-box;outline:none;">
+      <div style="font-size:11px;color:#7a766e;margin-top:6px;margin-bottom:14px;">Free key at <b style="color:#d4a84b;">openrouter.ai</b> → Keys → Create Key</div>
+    </div>
+
+    <!-- Buttons -->
+    <button onclick="saveSettings()" style="width:100%;padding:14px;background:#d4a84b;color:#0f0e0c;border:none;border-radius:10px;font-size:13px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:4px;">Save All Settings</button>
+    <button onclick="closeSettings();setTimeout(forceSync,300);" style="width:100%;padding:12px;background:transparent;color:#8fb89a;border:1px solid #8fb89a;border-radius:10px;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;margin-top:8px;">Force Sync Queue Now</button>
+    <!-- Inline queue manager -->
+    <div style="border:1px solid #2e2c29;border-radius:8px;padding:10px;margin-top:8px;background:#0f0e0c;">
+      <div id="queueManager" style="max-height:200px;overflow-y:auto;"></div>
+    </div>
+    <div id="queueStatus" style="text-align:center;font-size:11px;color:#7a766e;margin-top:6px;"></div>
+    <div style="border-top:1px solid #2e2c29;margin-top:12px;padding-top:10px;">
+      <button onclick="clearSettings()" style="width:100%;padding:10px;background:transparent;color:#7a766e;border:1px solid #2e2c29;border-radius:10px;font-size:11px;cursor:pointer;font-family:var(--mono);">Clear All Saved Settings</button>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

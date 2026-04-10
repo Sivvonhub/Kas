@@ -928,7 +928,26 @@ function formatAmountInput(input, currencySelectId) {
 
 function getRawAmount(inputId, currencySelectId) {
   const raw = document.getElementById(inputId).value.replace(/[^\d.]/g, '');
-  return parseFloat(raw);
+  const num = parseFloat(raw);
+  if (!isNaN(num) && currencySelectId) {
+    const cur = document.getElementById(currencySelectId)?.value;
+    // Warn if IDR amount looks like it was entered in thousands (under 1000 Rp is virtually nothing)
+    if (cur === 'IDR' && num > 0 && num < 1000) {
+      const confirmed = confirm(
+        'IDR amount looks very small: Rp' + num.toLocaleString('id-ID') + '\n\n' +
+        'In Bali, almost nothing costs less than Rp1,000.\n' +
+        'Did you mean Rp' + (num * 1000).toLocaleString('id-ID') + '?\n\n' +
+        'Tap OK to multiply by 1000 (correct)\n' +
+        'Tap Cancel to keep Rp' + num.toLocaleString('id-ID') + ' (rare)'
+      );
+      if (confirmed) {
+        const corrected = num * 1000;
+        document.getElementById(inputId).value = corrected;
+        return corrected;
+      }
+    }
+  }
+  return num;
 }
 
 const AI_PROMPT = `You are reading a receipt image. Extract the following and return ONLY valid JSON, no markdown:

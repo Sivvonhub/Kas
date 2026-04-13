@@ -414,6 +414,7 @@
       <option value="Groceries">Groceries</option>
       <option value="Grab / GoFood">Grab / GoFood</option>
       <option value="Transport">Transport</option>
+      <option value="Travel">Travel</option>
       <option value="Shopping">Shopping</option>
       <option value="Entertainment">Entertainment</option>
       <option value="Health">Health</option>
@@ -473,6 +474,7 @@
     <option value="Groceries">Groceries</option>
     <option value="Grab / GoFood">Grab / GoFood</option>
     <option value="Transport">Transport</option>
+    <option value="Travel">Travel</option>
     <option value="Shopping">Shopping</option>
     <option value="Entertainment">Entertainment</option>
     <option value="Health">Health</option>
@@ -539,7 +541,7 @@
 </div>
 
 <script>
-const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Shopping","Entertainment","Health","Subscriptions","Family Living Expenses","Own Spending","Wife Allowance","Uti Allowance","School Fees","Electricity","Bills","Debt","Savings","Lottery","Business","Misc"];
+const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Travel","Shopping","Entertainment","Health","Subscriptions","Family Living Expenses","Own Spending","Wife Allowance","Uti Allowance","School Fees","Electricity","Bills","Debt","Savings","Lottery","Business","Misc"];
 let entries = [];
 
 // ── SETTINGS ──
@@ -950,20 +952,25 @@ function getRawAmount(inputId, currencySelectId) {
   return num;
 }
 
-const AI_PROMPT = `You are reading a receipt image. Extract the following and return ONLY valid JSON, no markdown:
+function buildAiPrompt() {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const thisYear = new Date().getFullYear();
+  return `You are reading a receipt image. Today's date is ${todayStr}. Extract the following and return ONLY valid JSON, no markdown:
 {
   "merchant": "store or restaurant name",
-  "date": "YYYY-MM-DD or empty string if not found",
+  "date": "YYYY-MM-DD — use the date printed on the receipt. If the year is unclear or missing, assume ${thisYear}. If no date found use ${todayStr}.",
   "amount": number (total amount as a number only, no currency symbols),
   "currency": "IDR or AUD or USD — guess from context, default IDR if Bali/Indonesian receipt",
-  "category": one of exactly: Eating Out, Groceries, Grab / GoFood, Transport, Shopping, Entertainment, Health, Subscriptions, Family Living Expenses, Own Spending, Wife Allowance, Uti Allowance, School Fees, Electricity, Bills, Debt, Savings, Lottery, Business, Misc,
+  "category": one of exactly: Eating Out, Groceries, Grab / GoFood, Transport, Travel, Shopping, Entertainment, Health, Subscriptions, Family Living Expenses, Own Spending, Wife Allowance, Uti Allowance, School Fees, Electricity, Bills, Debt, Savings, Lottery, Business, Misc,
   "notes": "brief note about what was purchased, max 10 words"
 }
 Rules:
 - Eating Out = sit-down restaurant or warung meal
 - Groceries = supermarket, Indomaret, Alfamart, market food shopping
 - Grab / GoFood = food delivery or Grab transport
+- The current year is ${thisYear}. If the year on the receipt is unclear, ALWAYS use ${thisYear}. Never return any other year unless you can clearly read it on the receipt.
 If you cannot read the receipt clearly, make your best guess. Always return valid JSON.`;
+}
 
 async function analyzeReceipt(base64, mimeType) {
   document.getElementById('processingMsg').classList.add('show');
@@ -986,7 +993,7 @@ async function analyzeReceipt(base64, mimeType) {
           role: 'user',
           content: [
             { type: 'image_url', image_url: { url: 'data:' + mimeType + ';base64,' + base64 } },
-            { type: 'text', text: AI_PROMPT }
+            { type: 'text', text: buildAiPrompt() }
           ]
         }]
       })
@@ -999,7 +1006,17 @@ async function analyzeReceipt(base64, mimeType) {
     const parsed = JSON.parse(clean);
 
     document.getElementById('r_merchant').value = parsed.merchant || '';
-    document.getElementById('r_date').value = parsed.date || today;
+    // Validate the AI-returned date — fix wrong year if needed
+    let aiDate = parsed.date || today;
+    if (aiDate) {
+      const aiYear = parseInt(aiDate.split('-')[0], 10);
+      const thisYear = new Date().getFullYear();
+      if (isNaN(aiYear) || aiYear !== thisYear) {
+        // AI returned wrong year — always correct to current year
+        aiDate = String(thisYear) + aiDate.slice(4);
+      }
+    }
+    document.getElementById('r_date').value = aiDate || today;
     document.getElementById('r_currency').value = parsed.currency || 'IDR';
     const amtField = document.getElementById('r_amount');
     amtField.value = parsed.amount || '';

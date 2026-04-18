@@ -426,6 +426,7 @@
       <option value="School Fees">School Fees</option>
       <option value="Electricity">Electricity</option>
       <option value="Bills">Bills</option>
+      <option value="Visa & Immigration">Visa & Immigration</option>
       <option value="Debt">Debt</option>
       <option value="Savings">Savings</option>
       <option value="Lottery">Lottery</option>
@@ -486,6 +487,7 @@
     <option value="School Fees">School Fees</option>
     <option value="Electricity">Electricity</option>
     <option value="Bills">Bills</option>
+    <option value="Visa & Immigration">Visa & Immigration</option>
     <option value="Debt">Debt</option>
     <option value="Savings">Savings</option>
     <option value="Lottery">Lottery</option>
@@ -541,7 +543,7 @@
 </div>
 
 <script>
-const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Travel","Shopping","Entertainment","Health","Subscriptions","Family Living Expenses","Own Spending","Wife Allowance","Uti Allowance","School Fees","Electricity","Bills","Debt","Savings","Lottery","Business","Misc"];
+const CATEGORIES = ["Eating Out","Groceries","Grab / GoFood","Transport","Travel","Shopping","Entertainment","Health","Subscriptions","Family Living Expenses","Own Spending","Wife Allowance","Uti Allowance","School Fees","Electricity","Bills","Visa & Immigration","Debt","Savings","Lottery","Business","Misc"];
 let entries = [];
 
 // ── SETTINGS ──
@@ -961,7 +963,7 @@ function buildAiPrompt() {
   "date": "YYYY-MM-DD — use the date printed on the receipt. If the year is unclear or missing, assume ${thisYear}. If no date found use ${todayStr}.",
   "amount": number (total amount as a number only, no currency symbols),
   "currency": "IDR or AUD or USD — guess from context, default IDR if Bali/Indonesian receipt",
-  "category": one of exactly: Eating Out, Groceries, Grab / GoFood, Transport, Travel, Shopping, Entertainment, Health, Subscriptions, Family Living Expenses, Own Spending, Wife Allowance, Uti Allowance, School Fees, Electricity, Bills, Debt, Savings, Lottery, Business, Misc,
+  "category": one of exactly: Eating Out, Groceries, Grab / GoFood, Transport, Travel, Shopping, Entertainment, Health, Subscriptions, Family Living Expenses, Own Spending, Wife Allowance, Uti Allowance, School Fees, Electricity, Bills, Visa & Immigration, Debt, Savings, Lottery, Business, Misc,
   "notes": "brief note about what was purchased, max 10 words"
 }
 Rules:
